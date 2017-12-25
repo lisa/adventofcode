@@ -9,6 +9,12 @@ A word may not appear twice in the same passphrase.
 
 aa bb cc dd aa: invalid (aa reappears)
 aa bb cc dd aaa: valid (aaa and aa are distinct)
+
+Part B:
+
+Passphrases aren't valid if it contains two words which are anagrams of each other.
+NOTE: Part A is a specific case of being an anagram.
+
 */
 
 import (
