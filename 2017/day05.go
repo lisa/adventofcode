@@ -22,6 +22,10 @@ would be taken before an exit is found:
  2 (4) 0  1  -2  - go back to where we just were; increment -3 to -2.
  2  5  0  1  -2  - jump 4 steps forward, escaping the maze.
 
+Part B:
+
+After each jump, if the offset was 3 or more, decrease it by 1, otherwise increment by 1 as before.
+
 */
 import (
 	"bufio"
@@ -35,6 +39,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "./inputs/day05-example.txt", "Instructions Input File")
+var partB = flag.Bool("partB", false, "Perform part B solution?")
 
 type Instruction struct {
 	Step int
@@ -100,6 +105,7 @@ func main() {
 	jumps := 0
 	stepAmount := 0
 	instruction := instructions.Value
+	incrementOffset := 1
 
 	for !outOfBounds {
 		instruction = instructions.Value.(Instruction)
@@ -110,7 +116,15 @@ func main() {
 		} else {
 			jumps += 1
 			instructionPosition += stepAmount
-			instructions.Value = Instruction{Step: stepAmount + 1}
+
+			if *partB && stepAmount >= 3 {
+				incrementOffset = -1
+			} else {
+				incrementOffset = 1
+			}
+			// Store new "step" for next time we see this instruction
+			// part A: Add 1, part B: add (stepAmount >= 3 ? -1 : 1)
+			instructions.Value = Instruction{Step: stepAmount + incrementOffset}
 			instructions = instructions.Move(stepAmount)
 		}
 	}
