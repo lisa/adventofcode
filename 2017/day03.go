@@ -39,6 +39,7 @@ import (
 )
 
 var input = flag.Int("input", 23, "Find steps to access this data square")
+var partB = flag.Bool("partB", false, "Perform part B solution?")
 
 type Cell struct {
 	X, Y int
@@ -97,11 +98,30 @@ func (c Cell) String() string {
 	return fmt.Sprintf("(%d, %d)", c.X, c.Y)
 }
 
+func (c Cell) GetNeighbours(seen *map[Cell]bool) []Cell {
+	ret := make([]Cell, 0) // grow as needed
+	for x := -1; x <= 1; x++ {
+	y:
+		for y := -1; y <= 1; y++ {
+			t := Cell{X: c.X + x, Y: c.Y + y}
+			// skip myself
+			if c == t {
+				continue y
+			}
+			if (*seen)[t] {
+				ret = append(ret, t)
+			}
+		}
+	}
+	return ret
+}
+
 func main() {
 	flag.Parse()
-
+	seenLargest := false
+	largestI := 0
+	largestValue := 0
 	candidateNumber := *input
-	fmt.Printf("Finding input from %d\n", candidateNumber)
 
 	seenCells := make(map[Cell]bool)
 	cells := make(map[Cell]int)
@@ -110,22 +130,44 @@ func main() {
 	seenCells[Cell{X: 0, Y: 0}] = true // 1
 	seenCells[Cell{X: 1, Y: 0}] = true // 2
 	cells[Cell{X: 0, Y: 0}] = 1
-	cells[Cell{X: 1, Y: 0}] = 2
+	if *partB {
+		cells[Cell{X: 1, Y: 0}] = 1 // Sum is 1
+	} else {
+		cells[Cell{X: 1, Y: 0}] = 2 // Second digit
+	}
 
 	lastCell := &Cell{X: 1, Y: 0}
 
 	for i := 3; i <= candidateNumber; i++ {
 		r := CreateCell(&seenCells, lastCell)
-		if r != nil {
-			cells[*r] = i
-			seenCells[*r] = true
-			lastCell = r
-		} else {
+		if r == nil {
 			fmt.Printf("Couldn't figure out a rule for %d (wtf?)!\n", i)
 			os.Exit(1)
 		}
+		if *partB {
+			sum := 0
+			for _, neighbourCell := range r.GetNeighbours(&seenCells) {
+				sum += cells[neighbourCell]
+			}
+
+			cells[*r] = sum
+			if !seenLargest && sum > candidateNumber {
+				fmt.Printf("(Iteration %d) %d is larger than input (which was %d)\n", i, sum, candidateNumber)
+				seenLargest = true
+				largestValue = sum
+				largestI = i
+			}
+		} else {
+			cells[*r] = i
+		}
+		seenCells[*r] = true
+		lastCell = r
+
+	}
+	if *partB {
+		fmt.Printf("On iteration %d we saw a sum of %d, which was larger than input of %d\n", largestI, largestValue, candidateNumber)
+	} else {
+		fmt.Printf("Distance from %s and %s: %f\n", lastCell, Cell{X: 0, Y: 0}, math.Abs(float64(lastCell.X))+math.Abs(float64(lastCell.Y)))
 	}
 
-	fmt.Printf("Last Cell: %s, data: %d\n", lastCell, cells[*lastCell])
-	fmt.Printf("Distance from %s and %s: %f\n", lastCell, Cell{X: 0, Y: 0}, math.Abs(float64(lastCell.X))+math.Abs(float64(lastCell.Y)))
 }
