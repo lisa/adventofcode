@@ -11,7 +11,6 @@ Zero out the largest bank, saving the number of blocks. Starting with the next b
 import (
 	"bufio"
 	"bytes"
-	//	"container/ring"
 	"flag"
 	"fmt"
 	"os"
