@@ -20,6 +20,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "./inputs/day06-example.txt", "Input file")
+var partB = flag.Bool("partB", false, "Perform part B solution?")
 
 // This will modify the original slice
 func balance(banks []int) ([]int, string) {
@@ -101,16 +102,37 @@ func main() {
 	fmt.Printf("Memory banks: %v\n", memoryBanks)
 
 	count := 0
+	countSinceFirstObservation := 0
+	partBCount := false
+	var partBFirstSeen string
 balanceLoop:
 	for {
 		_, strFormatted := balance(memoryBanks)
 		count += 1
+		if *partB && partBCount {
+			countSinceFirstObservation += 1
+		}
 		if observedPatterns[strFormatted] {
-			break balanceLoop
+			if *partB {
+				if partBFirstSeen == "" {
+					// set the pattern to look for
+					partBFirstSeen = strFormatted
+				} else if partBFirstSeen == strFormatted {
+					// We did it! We're done
+					break balanceLoop
+				}
+				partBCount = true
+			} else {
+				break balanceLoop
+			}
 		} else {
 			observedPatterns[strFormatted] = true
 		}
 	}
-	fmt.Printf("Saw a duplicate pattern after %d iterations\n", count)
+	if *partB {
+		fmt.Printf("Encountered the first pattern (%s) after %d loops\n", partBFirstSeen, countSinceFirstObservation)
+	} else {
+		fmt.Printf("Saw a duplicate pattern after %d iterations\n", count)
+	}
 
 }
