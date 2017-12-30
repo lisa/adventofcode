@@ -176,7 +176,6 @@ func main() {
 	rootNode, _ = rootNode.ComputeTreeWeight()
 
 	if *partB {
-		//		rootNode, _ = rootNode.ComputeTreeWeight()
 		balanced, offender, offset := rootNode.IsTreeBalanced()
 
 		var lastOffender *Node
