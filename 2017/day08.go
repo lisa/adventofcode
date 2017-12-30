@@ -39,6 +39,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "./inputs/day08-example.txt", "Input file")
+var partB = flag.Bool("partB", false, "Perform part B solution")
 var debug = flag.Bool("debug", false, "Trace execution?")
 var step = flag.Bool("step", false, "Step execution?")
 
@@ -120,6 +121,8 @@ func main() {
 
 	// Registers name => value
 	registers := make(map[string]int)
+	runtimeHighest := 0
+	runtimeHighestRegister := ""
 
 	for lineReader.Scan() {
 		// loop over tokens separated by spaces
@@ -188,6 +191,12 @@ func main() {
 			PrintRegisters(registers)
 			Step()
 		}
+		if *partB {
+			if newValue > runtimeHighest {
+				runtimeHighest = newValue
+				runtimeHighestRegister = lineOfCode.Register
+			}
+		}
 
 	} // EOF
 	highest := 0
@@ -206,4 +215,7 @@ func main() {
 		}
 	}
 	fmt.Printf("Highest register is %s, value of %d\n", highestRegister, highest)
+	if *partB {
+		fmt.Printf("During runtime the highest value was %d, stored in register %s\n", runtimeHighest, runtimeHighestRegister)
+	}
 }
