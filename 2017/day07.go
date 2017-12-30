@@ -129,7 +129,7 @@ func main() {
 	// Create a map of name -> Node for quicker access, especially when building
 	tower := make(map[string]*Node)
 
-	// Map of parents => children. Keys are names of nodes whose parents are the values
+	// Map of parents => children. Keys are names of nodes whose children are the values
 	children := make(map[string][]string)
 
 	lineReader := bufio.NewScanner(input)
