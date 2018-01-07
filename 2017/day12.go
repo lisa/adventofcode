@@ -18,6 +18,13 @@ The input describes a bidirectional set of pipes between programs :
 0 to/from 2
 2 to/from 0, 3, 4
 etc
+
+Part B:
+
+Count the number of pipe groups. In the example the are 2:
+- 1 (with itself)
+- 0,2,3,4,5,6 with one another through various ways.
+
 */
 
 import (
@@ -47,6 +54,16 @@ func (p PipeMap) ProgramsOf(pid int, seenPids map[int]bool) {
 		}
 	}
 	// base case
+}
+
+func PartA(programs PipeMap, startAt int) map[int]bool {
+	seenPids := make(map[int]bool)
+	programs.ProgramsOf(startAt, seenPids)
+	if *debug {
+		fmt.Printf(" seenPids=%v\n", seenPids)
+	}
+	return seenPids
+
 }
 
 func main() {
@@ -90,13 +107,25 @@ func main() {
 	if *debug {
 		fmt.Printf("programs: %v\n", programs)
 	}
-
-	seenPids := make(map[int]bool)
-	programs.ProgramsOf(0, seenPids)
-	fmt.Printf("Total number of programs in the group that contain program ID %d: %d", 0, len(seenPids))
-	if *debug {
-		fmt.Printf(" seenPids=%v\n", seenPids)
+	if *partB {
+		// Part B
+		/*
+		   For each key, follow its values until they are all mapped out.
+		   Once the mapping is complete, count++ and remove all the mapped items from the original map's keys
+		*/
+		count := 0
+		for pid, _ := range programs {
+			seenMap := PartA(programs, pid)
+			if *debug {
+				fmt.Printf("Part B Mapping for %d: %v\n", pid, seenMap)
+			}
+			for seenPid, _ := range seenMap {
+				delete(programs, seenPid)
+			}
+			count += 1
+		}
+		fmt.Printf("Discrete groups: %d\n", count)
 	} else {
-		fmt.Printf("\n")
+		fmt.Printf("Part A: %d\n", len(PartA(programs, 0)))
 	}
 }
