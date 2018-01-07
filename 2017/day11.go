@@ -40,6 +40,7 @@ import (
 )
 
 var input = flag.String("input", "ne,ne,ne", "Puzzle Input")
+var partB = flag.Bool("partB", false, "Perform part B solution?")
 var debug = flag.Bool("debug", false, "Debug")
 
 // Hex Stuff
@@ -83,6 +84,31 @@ func NewHex(x, y int) *Hex {
 	}
 }
 
+func (h *Hex) MovesFromHome() int {
+	var moves int
+	if h.X == 0 {
+		moves = int(math.Abs(float64(h.Y)))
+	} else if h.X < 0 {
+		if h.Y == 0 {
+			moves = int(math.Abs(float64(h.X)))
+		} else if h.Y > 0 {
+			moves = int(math.Abs(float64(h.X))) + (h.Y - int(math.Abs(float64(h.X))))
+		} else {
+			moves = int(math.Abs(float64(h.X + h.Y)))
+		}
+	} else {
+		// X > 0
+		if h.Y == 0 {
+			moves = int(math.Abs(float64(h.X)))
+		} else if h.Y > 0 {
+			moves = h.Y + (int(math.Abs(float64(h.X))) - h.Y)
+		} else {
+			moves = int(math.Abs(float64(h.Y))) + (int(math.Abs(float64(h.X))) - int(math.Abs(float64(h.Y))))
+		}
+	}
+	return moves
+}
+
 func main() {
 	flag.Parse()
 
@@ -91,12 +117,17 @@ func main() {
 		fmt.Printf("Initial hex %s\n", currentHex)
 	}
 	var err error
+	furthestFromHome := 0
 
 	if *debug {
 		fmt.Printf("currentHex: %s\n", currentHex)
 	}
 	for _, direction := range strings.Split(*input, ",") {
 		currentHex, err = currentHex.Move(direction)
+		if *partB && currentHex.MovesFromHome() > furthestFromHome {
+			furthestFromHome = currentHex.MovesFromHome()
+		}
+
 		if err != nil {
 			fmt.Printf("Got error: %s\n", err)
 			os.Exit(1)
@@ -109,28 +140,12 @@ func main() {
 	if *debug {
 		fmt.Println()
 	}
-	var moves int
-	fmt.Printf("After making the moves the location is: %+v\n", currentHex)
-	if currentHex.X == 0 {
-		moves = int(math.Abs(float64(currentHex.Y)))
-	} else if currentHex.X < 0 {
-		if currentHex.Y == 0 {
-			moves = int(math.Abs(float64(currentHex.X)))
-		} else if currentHex.Y > 0 {
-			moves = int(math.Abs(float64(currentHex.X))) + (currentHex.Y - int(math.Abs(float64(currentHex.X))))
-		} else {
-			moves = int(math.Abs(float64(currentHex.X + currentHex.Y)))
-		}
-	} else {
-		// X > 0
-		if currentHex.Y == 0 {
-			moves = int(math.Abs(float64(currentHex.X)))
-		} else if currentHex.Y > 0 {
-			moves = currentHex.Y + (int(math.Abs(float64(currentHex.X))) - currentHex.Y)
-		} else {
-			moves = int(math.Abs(float64(currentHex.Y))) + (int(math.Abs(float64(currentHex.X))) - int(math.Abs(float64(currentHex.Y))))
-		}
-	}
 
-	fmt.Printf("Moves: %d\n", moves)
+	fmt.Printf("After making the moves the location is: %+v\n", currentHex)
+
+	if *partB {
+		fmt.Printf("Furthest ever from home: %d\n", furthestFromHome)
+	} else {
+		fmt.Printf("Moves: %d\n", currentHex.MovesFromHome())
+	}
 }
