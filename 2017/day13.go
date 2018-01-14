@@ -28,12 +28,24 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "./inputs/day13-example.txt", "Input File")
+var partB = flag.Bool("partB", false, "Perform part B solution?")
 var debug = flag.Bool("debug", false, "Debug?")
+var maxAttempts = flag.Int("maxAttempts", 4000000, "Max attempts for part B")
 
 type Firewall struct {
 	Rules             map[int]int  // layer # -> depth
 	Positions         map[int]int  // current position in each layer
 	MovementDirection map[int]bool // true=down, false=up
+}
+
+func (fw *Firewall) Clone() *Firewall {
+	ret := NewFirewall()
+	for layerNumber := 0; layerNumber <= fw.HighestLayer(); layerNumber++ {
+		ret.Rules[layerNumber] = fw.Rules[layerNumber]
+		ret.Positions[layerNumber] = fw.Positions[layerNumber]
+		ret.MovementDirection[layerNumber] = fw.MovementDirection[layerNumber]
+	}
+	return ret
 }
 
 func (fw *Firewall) AddRuleAtPos(layer, depth int) {
@@ -52,7 +64,7 @@ Advance the scanner once. Return a map of what the current position is for
 each layer. If there is a gap between layers there will not be an entry.
 */
 func (fw *Firewall) Advance() map[int]int {
-	for layerNumber, _ := range fw.Positions {
+	for layerNumber := 0; layerNumber <= fw.HighestLayer(); layerNumber++ {
 		// Skip if there's no rules, or it has 0 length.
 		if fw.Rules[layerNumber] == 0 {
 			continue
@@ -63,25 +75,46 @@ func (fw *Firewall) Advance() map[int]int {
 			If we're previously going up:
 			 if i can go up, go up. otherwise, flip direction; go down
 		*/
+		if *debug {
+			fmt.Printf("Advancing to firewall position (layer) %d\n", layerNumber)
+		}
 
 		if fw.MovementDirection[layerNumber] {
 			// Going down
+			if *debug {
+				fmt.Printf("Currently going down ")
+			}
 			if fw.Positions[layerNumber]+1 >= fw.Rules[layerNumber] {
+				if *debug {
+					fmt.Printf("Can't go down because fw.Positions[layerNumber]+1 >= fw.Rules[layerNumber] (%d>=%d)\n", fw.Positions[layerNumber]+1, fw.Rules[layerNumber])
+				}
 				// can't keep going down, so flip around and go up
 				fw.MovementDirection[layerNumber] = false
 				fw.Positions[layerNumber] -= 1
 			} else {
+				if *debug {
+					fmt.Printf("Keeping on going down\n")
+				}
 				// keep going down
 				fw.Positions[layerNumber] += 1
 			}
 		} else {
 			// Going up
+			if *debug {
+				fmt.Printf("Currently going up ")
+			}
 			if fw.Positions[layerNumber]-1 < 0 {
+				if *debug {
+					fmt.Printf("Can't keep going up because fw.Positions[layerNumber]-1 < 0 (%d<0)\n", fw.Positions[layerNumber]-1)
+				}
 				// can't keep going up, so flip around and go down
 				fw.MovementDirection[layerNumber] = true
 				fw.Positions[layerNumber] += 1
 			} else {
 				// keep going up
+				if *debug {
+					fmt.Printf("Keep on going up")
+				}
 				fw.Positions[layerNumber] -= 1
 			}
 		} // end: which way am i going?
@@ -102,11 +135,17 @@ func (fw *Firewall) HighestLayer() int {
 
 // It's possible to have gaps, so fill them in with 0 depth layers
 func (fw *Firewall) FillInGaps() {
-	for i := 0; i < fw.HighestLayer(); i++ {
+	for i := 0; i <= fw.HighestLayer(); i++ {
 		if fw.Rules[i] == 0 {
 			fw.Rules[i] = 0
 			fw.MovementDirection[i] = true
 		}
+	}
+}
+
+func (fw *Firewall) PrintMap() {
+	for i := 0; i <= fw.HighestLayer(); i++ {
+		fmt.Printf("Layer %d Depth: %d Pos: %d Down?: %t\n", i, fw.Rules[i], fw.Positions[i], fw.MovementDirection[i])
 	}
 }
 
@@ -118,6 +157,47 @@ func (fw *Firewall) CheckCollision(layerPosition int) bool {
 // What's the cost of being caught in layer layerPosition?
 func (fw *Firewall) CollisionCost(layerPosition int) int {
 	return layerPosition * fw.Rules[layerPosition]
+}
+
+/*
+Try to run through the layers with the current configuration (eg scan position) to see if the checker is at the top.
+Returns: success/failure, failure position, collision cost.
+*/
+func (fw *Firewall) CheckRun() (bool, int, int) {
+	collisionCost := 0
+	failPosition := 0
+	ret := true
+	if *debug {
+		fmt.Printf("Firewall at the start of CheckRun\n")
+		fw.PrintMap()
+	}
+	// Now, run through the firewall
+	// check initial condition; later, do them all
+	if fw.CheckCollision(0) {
+		collisionCost += fw.CollisionCost(0)
+		if *debug {
+			fmt.Printf("Firewall at end of CheckRun (0 check)\n")
+			fw.PrintMap()
+		}
+		return false, 0, collisionCost
+	}
+	for position := 1; position <= fw.HighestLayer(); position++ {
+		fw.Advance()
+		if *debug {
+			fmt.Printf("CheckRun - checking at layer %d\n", position)
+		}
+		if fw.CheckCollision(position) {
+			failPosition = position
+			collisionCost += fw.CollisionCost(position)
+			ret = false
+			break
+		}
+	}
+	if *debug {
+		fmt.Printf("Firewall at end of CheckRun\n")
+		fw.PrintMap()
+	}
+	return ret, failPosition, collisionCost
 }
 
 func NewFirewall() *Firewall {
@@ -164,34 +244,64 @@ func main() {
 		firewall.AddRuleAtPos(layer, depth)
 	} // EOF
 	firewall.FillInGaps()
+
 	if *debug {
-		fmt.Printf("Firewall after creation: %+v\n", firewall)
-		fmt.Println()
+		fmt.Printf("Firewall after creation\n")
+		firewall.PrintMap()
 	}
-	collisionCost := 0
-	// check initial condition
-	if firewall.CheckCollision(0) {
-		collisionCost += firewall.CollisionCost(0)
-	}
-	if *debug {
-		fmt.Printf("picosecond %d\n", 0)
-		fmt.Printf("Firewall: %+v\n", firewall)
-		fmt.Printf("Collision at %d? => %t\n", 0, firewall.CheckCollision(0))
-		fmt.Println()
-	}
-	for position := 1; position <= firewall.HighestLayer(); position++ {
-		firewall.Advance()
-		if *debug {
-			fmt.Printf("picosecond %d\n", position)
-			fmt.Printf("Firewall: %+v\n", firewall)
-			fmt.Printf("Collision at %d? => %t\n", position, firewall.CheckCollision(position))
+
+	if *partB {
+		success := false
+		failPosition := -1
+		cost := 0
+
+		for attempt := 1; attempt < *maxAttempts; attempt++ {
+			if *debug {
+				fmt.Println()
+				fmt.Printf("Part B attempt with %d picosecond delay\n", attempt-1)
+			}
+			success, failPosition, cost = firewall.Clone().CheckRun()
+			if success {
+				fmt.Printf("Success after %d runs\n", attempt-1)
+				return
+			} else {
+				if *debug {
+					fmt.Printf(" Tried delaying for %d picoseconds, but failed on layer %d (cost: %d)\n", attempt-1, failPosition, cost)
+				}
+				firewall.Advance()
+			}
+			if *debug {
+				fmt.Println()
+			}
 		}
-		if firewall.CheckCollision(position) {
-			collisionCost += firewall.CollisionCost(position)
+		fmt.Printf("Out of attempts\n")
+
+	} else { // end part B
+		collisionCost := 0
+		// check initial condition
+		if firewall.CheckCollision(0) {
+			collisionCost += firewall.CollisionCost(0)
 		}
 		if *debug {
+			fmt.Printf("picosecond %d\n", 0)
+			firewall.PrintMap()
+			fmt.Printf("Collision at %d? => %t\n", 0, firewall.CheckCollision(0))
 			fmt.Println()
 		}
+		for position := 1; position <= firewall.HighestLayer(); position++ {
+			firewall.Advance()
+			if *debug {
+				fmt.Printf("picosecond %d\n", position)
+				firewall.PrintMap()
+				fmt.Printf("Collision at %d? => %t\n", position, firewall.CheckCollision(position))
+			}
+			if firewall.CheckCollision(position) {
+				collisionCost += firewall.CollisionCost(position)
+			}
+			if *debug {
+				fmt.Println()
+			}
+		}
+		fmt.Printf("Made it! But at what cost...? Collision Cost: %d\n", collisionCost)
 	}
-	fmt.Printf("Made it! But at what cost...? Collision Cost: %d\n", collisionCost)
 }
