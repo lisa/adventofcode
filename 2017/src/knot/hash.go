@@ -2,6 +2,7 @@ package knot
 
 import (
 	"container/ring"
+	"fmt"
 )
 
 // Append this to the input after it has been converted to ASCII.
@@ -13,27 +14,43 @@ type Hash struct {
 	appendedInput []int      // input with appended suffix
 }
 
+func (h *Hash) RawInputAsString() string {
+	str := ""
+	for i := 0; i < len(h.rawInput); i++ {
+		str += string(h.rawInput[i])
+	}
+	return str
+}
+
+func (h *Hash) String() string {
+	return h.DenseHashToString()
+}
+
+func (h *Hash) DenseHashToString() string {
+	return fmt.Sprintf("%02x", h.ComputeDenseHash())
+}
+
 // Compute the Dense Hash
 func (h *Hash) ComputeDenseHash() []byte {
 	// Need to do the 64 rounds
-
+	workingRing := h.ring // Duplicate the ring so these operations don't tamper with it
 	skipSize := 0
 	totalSkips := 0
 	for round := 0; round < 64; round++ {
-		h.ring = doRound(h.appendedInput, &skipSize, &totalSkips, h.ring)
+		workingRing = doRound(h.appendedInput, &skipSize, &totalSkips, workingRing)
 	}
-	h.ring = h.ring.Move(-1 * totalSkips)
+	workingRing = workingRing.Move(-1 * totalSkips)
 
 	ret := make([]int, 16)
 	for chunk := 0; chunk < 16; chunk++ {
 		// "Seed" the chunk bits with the first value of the 16 digits for ^=
-		ret[chunk] = h.ring.Value.(int)
+		ret[chunk] = workingRing.Value.(int)
 
-		h.ring = h.ring.Next()
+		workingRing = workingRing.Next()
 		for digit := 1; digit < 16; digit++ {
 			// The digit-th digit in the dense hash
-			ret[chunk] ^= h.ring.Value.(int)
-			h.ring = h.ring.Next()
+			ret[chunk] ^= workingRing.Value.(int)
+			workingRing = workingRing.Next()
 		} // finsihed 16 digits
 	} // done with the chunks
 
