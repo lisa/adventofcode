@@ -282,7 +282,7 @@ func main() {
 		ring = doRound(numbers, &skipSize, &totalSkips, ring)
 
 		if *debug {
-			fmt.Printf("Round %d is over. skipSize=%d, totalSkips=%d\n", i, skipSize, totalSkips)
+			fmt.Printf("Round %d is over. skipSize=%d, totalSkips=%d\n", i+1, skipSize, totalSkips)
 			fmt.Printf("Ring: ")
 			PrintRing(ring, -1)
 			fmt.Println()
