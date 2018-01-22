@@ -5,7 +5,7 @@ import (
 )
 
 // append this suffix to the rawInput
-var hashSufix = []byte{17, 31, 73, 47, 23}
+var hashSuffix = []byte{17, 31, 73, 47, 23}
 
 type Hash struct {
 	data          []byte // the hashing structure
