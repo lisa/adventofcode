@@ -85,14 +85,9 @@ func initialize() []byte {
 }
 
 func New(input []byte) *Hash {
-	appended := input
-	for i := 0; i < len(hashSufix); i++ {
-		appended = append(appended, hashSufix[i])
-	}
-
 	return &Hash{
 		data:          initialize(),
 		rawInput:      input,
-		appendedInput: appended,
+		appendedInput: append(input,hashSuffix...),
 	}
 }
