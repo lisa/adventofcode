@@ -11,6 +11,7 @@ type Hash struct {
 	data          []byte // the hashing structure
 	rawInput      []byte // input key, slice of ints representing bytes (we'll append the suffix)
 	appendedInput []byte // input with appended suffix
+	hash          []byte // Cached hash
 }
 
 func (h *Hash) String() string {
@@ -23,6 +24,10 @@ func (h *Hash) DenseHashToString() string {
 
 // Return a 16 byte slice representing the hex digits of the dense hash based on the input
 func (h *Hash) ComputeDenseHash() []byte {
+	// cache hit?
+	if h.hash != nil {
+		return h.hash
+	}
 	// do rounds
 	workingList := h.data
 	currentIndex := 0
@@ -42,6 +47,7 @@ func (h *Hash) ComputeDenseHash() []byte {
 			currentIndex += 1
 		} // finsihed 16 digits
 	} // done with the chunks
+	h.hash = ret
 
 	return ret
 }
@@ -88,6 +94,6 @@ func New(input []byte) *Hash {
 	return &Hash{
 		data:          initialize(),
 		rawInput:      input,
-		appendedInput: append(input,hashSuffix...),
+		appendedInput: append(input, hashSuffix...),
 	}
 }
