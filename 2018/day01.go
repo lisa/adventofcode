@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	partA     = flag.Bool("partB", false, "Perform part B solution?")
+	partB     = flag.Bool("partB", false, "Perform part B solution?")
 	inputFile = flag.String("inputFile", "inputs/day01a.txt", "Input")
+	debug     = flag.Bool("debug", false, "Debug?")
 )
 
 func main() {
@@ -25,6 +26,7 @@ func main() {
 	}
 	calibration := 0
 	lineReader := bufio.NewScanner(input)
+	freqs := make([]int, 0)
 	for lineReader.Scan() {
 		line := lineReader.Text()
 
@@ -33,7 +35,28 @@ func main() {
 			fmt.Printf("Couldn't parse %s: %e\n", line, err)
 			os.Exit(1)
 		}
-		calibration += number
+		freqs = append(freqs, number)
+
+	}
+	if !*partB {
+		for _, i := range freqs {
+			calibration += i
+		}
+	} else {
+		// seen this freq yet?
+		seen := make(map[int]bool)
+		done := false
+		for !done {
+			// go through freqs til the end and we need to wrap, or, just bail out if we have a dupe
+			for i := 0; !done && i < len(freqs); i++ {
+				calibration += freqs[i]
+				if seen[calibration] {
+					done = true
+				}
+				seen[calibration] = true
+			}
+		}
+
 	}
 
 	fmt.Printf("Final calibration: %d\n", calibration)
