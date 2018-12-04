@@ -40,23 +40,25 @@ func NewPoint(x, y int) *Point {
 // (LeftX+1,TopY+1), (LeftX+1+Width,TopY+1), (LeftX+1,TopY+1+Height), (LeftX+1+Width,TopY+1+Height)
 // Or: X plane [LeftX+1,LeftX+1+Width] & Y Plane [TopY+1,TopY+1+Height]
 type Claim struct {
-	ID     int      // #123
-	Height int      // 4
-	Width  int      // 5
-	LeftX  int      // 3
-	TopY   int      // 2
-	Points []*Point // (X,Y) coords this Claim has
+	ID       int      // #123
+	Height   int      // 4
+	Width    int      // 5
+	LeftX    int      // 3
+	TopY     int      // 2
+	Points   []*Point // (X,Y) coords this Claim has
+	Overlaps int      // how many other points does this overlap with?
 }
 
 // NewClaim - make a new claim on the fabric
 func newClaim(id, leftx, topy, width, height int) *Claim {
 	return &Claim{
-		ID:     id,
-		LeftX:  leftx,
-		TopY:   topy,
-		Width:  width,
-		Height: height,
-		Points: make([](*Point), 0),
+		ID:       id,
+		LeftX:    leftx,
+		TopY:     topy,
+		Width:    width,
+		Height:   height,
+		Overlaps: 0,
+		Points:   make([](*Point), 0),
 	}
 }
 
@@ -118,6 +120,8 @@ func (c *Claim) FindOverlapSize(other *Claim) []*Point {
 			}
 
 			if p.X == o.X && p.Y == o.Y {
+				c.Overlaps++
+				other.Overlaps++
 				overlap = append(overlap, p)
 			}
 		}
@@ -154,8 +158,9 @@ func main() {
 			fmt.Printf("Added a Claim: index=%d, %+v\n", i, allClaims[i])
 		}
 	}
-
-	fmt.Printf("\n")
+	if *debug2 {
+		fmt.Printf("\n")
+	}
 	overlap := make([]*Point, 0)
 	// Loop through all the Claims and compare them to one another.
 	// We can be smart about this. If we've compared ID 1 to 2 we don't need to
@@ -178,14 +183,28 @@ func main() {
 			overlap = append(overlap, allClaims[left].FindOverlapSize(allClaims[right])...)
 		}
 	}
+	if !*partB {
 
-	uniqueOverlaps := make(map[Point]bool)
-	// Deduplicate.
-	for _, overlappingPoint := range overlap {
-		uniqueOverlaps[*NewPoint(overlappingPoint.X, overlappingPoint.Y)] = true
+		uniqueOverlaps := make(map[Point]bool)
+		// Deduplicate.
+		for _, overlappingPoint := range overlap {
+			uniqueOverlaps[*NewPoint(overlappingPoint.X, overlappingPoint.Y)] = true
+		}
+		if *debug {
+			fmt.Printf("All overlapping points: %+v\n", uniqueOverlaps)
+		}
+		fmt.Printf("Total overlap: %d\n", len(uniqueOverlaps))
+	} else {
+		// Find the sole Claim without any overlaps (so special!)
+		for _, c := range allClaims {
+			if c.Overlaps == 0 {
+				// god, i hope there's only one here
+				fmt.Printf("The Special Claim is ID %d\n", c.ID)
+			} else {
+				if *debug {
+					fmt.Printf("Claim %d has %d overlaps (rip)\n", c.ID, c.Overlaps)
+				}
+			}
+		}
 	}
-	if *debug {
-		fmt.Printf("All overlapping points: %+v\n", uniqueOverlaps)
-	}
-	fmt.Printf("Total overlap: %d\n", len(uniqueOverlaps))
 }
