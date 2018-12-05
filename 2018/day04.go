@@ -219,26 +219,68 @@ func main() {
 	if *debug {
 		fmt.Printf("Most sleepy guard: %d. Their actions: %+v\n", mostSleptID, allGuards[mostSleptID])
 	}
-	// histogram: minute -> count
-	sleepMinuteHistogram := make(map[int]int)
-	for _, minute := range allGuards[mostSleptID].SleepMinutes {
-		if *debug {
-			fmt.Printf("Incrementing minute %d count to %d\n", minute, sleepMinuteHistogram[minute]+1)
-		}
-		sleepMinuteHistogram[minute]++
-	}
-	if *debug {
-		fmt.Printf("Init most common minute to %d\n", allGuards[mostSleptID].SleepMinutes[0])
-	}
-	mostCommonMinute := allGuards[mostSleptID].SleepMinutes[0]
-	for minute, count := range sleepMinuteHistogram {
-		if count > sleepMinuteHistogram[mostCommonMinute] {
+	if !*partB {
+		// histogram: minute -> count
+		sleepMinuteHistogram := make(map[int]int)
+		for _, minute := range allGuards[mostSleptID].SleepMinutes {
 			if *debug {
-				fmt.Printf("new high score: %d minutes at %d\n", minute, count)
+				fmt.Printf("Incrementing minute %d count to %d\n", minute, sleepMinuteHistogram[minute]+1)
 			}
-			mostCommonMinute = minute
+			sleepMinuteHistogram[minute]++
 		}
+		if *debug {
+			fmt.Printf("Init most common minute to %d\n", allGuards[mostSleptID].SleepMinutes[0])
+		}
+		mostCommonMinute := allGuards[mostSleptID].SleepMinutes[0]
+		for minute, count := range sleepMinuteHistogram {
+			if count > sleepMinuteHistogram[mostCommonMinute] {
+				if *debug {
+					fmt.Printf("new high score: %d minutes at %d\n", minute, count)
+				}
+				mostCommonMinute = minute
+			}
+		}
+		fmt.Printf("Guard %d slept the most for a total of %d minutes. They slept most on minute %d, which puts the math at %d * %d = %d\n",
+			mostSleptID, allGuards[mostSleptID].SleepTime, mostCommonMinute, mostSleptID, mostCommonMinute, mostSleptID*mostCommonMinute)
+	} else {
+		// For every minute figure out which guard asleep on it the most, and which minute that was
+		// initialize these for later
+		mostCommonMinute := -1
+		mostCommonMinuteFreq := -1
+		var commonGuardID int
+		for _, guard := range allGuards {
+			histogram := make(map[int]int)
+			locallyCommonMinute := -1
+			locallyCommonMinuteFreq := -1
+
+			for _, minute := range guard.SleepMinutes {
+				if *debug {
+					fmt.Printf("Guard %d increasing histo minute %d->%d\n", guard.GuardID, minute, histogram[minute]+1)
+				}
+				histogram[minute]++
+			}
+			if *debug {
+				fmt.Printf("Histogram: %+v\n", histogram)
+			}
+			for minute, count := range histogram {
+				if count > histogram[locallyCommonMinute] {
+					if *debug {
+						fmt.Printf("New local high score! %d replaces %d (%d > %d)\n", minute, locallyCommonMinute, count, histogram[locallyCommonMinute])
+					}
+					locallyCommonMinute = minute
+					locallyCommonMinuteFreq = count
+				}
+			}
+			if locallyCommonMinuteFreq > mostCommonMinuteFreq {
+				if *debug {
+					fmt.Printf("New overall high score! Guard %d replaces Guard %d's score of %d with %d (%d > %d)\n", guard.GuardID, commonGuardID, mostCommonMinute, locallyCommonMinute, locallyCommonMinuteFreq, mostCommonMinuteFreq)
+				}
+				mostCommonMinute = locallyCommonMinute
+				mostCommonMinuteFreq = locallyCommonMinuteFreq
+				commonGuardID = guard.GuardID
+			}
+		}
+
+		fmt.Printf("Most Common Sleep Minute %d by Guard %d, or, mathy: %d * %d = %d\n", mostCommonMinute, commonGuardID, mostCommonMinute, commonGuardID, mostCommonMinute*commonGuardID)
 	}
-	fmt.Printf("Guard %d slept the most for a total of %d minutes. They slept most on minute %d, which puts the math at %d * %d = %d\n",
-		mostSleptID, allGuards[mostSleptID].SleepTime, mostCommonMinute, mostSleptID, mostCommonMinute, mostSleptID*mostCommonMinute)
 }
