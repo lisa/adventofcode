@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -15,8 +16,30 @@ var (
 	debug     = flag.Bool("debug", false, "Debug?")
 	debug2    = flag.Bool("debug2", false, "Print new units after match?")
 
-	match = regexp.MustCompile(`aA|Aa|bB|Bb|cC|Cc|dD|Dd|eE|Ee|fF|Ff|gG|Gg|hH|Hh|iI|Ii|jJ|Jj|kK|Kk|lL|Ll|mM|Mm|nN|Nn|oO|Oo|pP|Pp|qQ|Qq|rR|Rr|sS|Ss|tT|Tt|uU|Uu|vV|Vv|wW|Ww|xX|Xx|yY|Yy|zZ|Zz`)
+	parta     = regexp.MustCompile(`aA|Aa|bB|Bb|cC|Cc|dD|Dd|eE|Ee|fF|Ff|gG|Gg|hH|Hh|iI|Ii|jJ|Jj|kK|Kk|lL|Ll|mM|Mm|nN|Nn|oO|Oo|pP|Pp|qQ|Qq|rR|Rr|sS|Ss|tT|Tt|uU|Uu|vV|Vv|wW|Ww|xX|Xx|yY|Yy|zZ|Zz`)
+	partBList = []string{`a`, `b`, `c`, `d`, `e`, `f`, `g`, `h`, `i`, `j`, `k`, `l`, `m`, `n`, `o`, `p`, `q`, `r`, `s`, `t`, `u`, `v`, `w`, `x`, `y`, `z`}
 )
+
+// React - Do the reaction.
+func React(inputPolymer *string) {
+	for {
+
+		match := parta.FindAllStringIndex(*inputPolymer, 1)
+		if len(match) == 0 {
+			break
+		}
+		if *debug2 {
+			fmt.Printf("Removed %s at [%d:%d] -> ", (*inputPolymer)[match[0][0]:match[0][1]], match[0][0], match[0][1])
+		}
+		*inputPolymer = strings.Replace(*inputPolymer, (*inputPolymer)[match[0][0]:match[0][1]], "", 1)
+		if *debug2 {
+			fmt.Printf("New string is %s\n", *inputPolymer)
+		}
+	}
+	if *debug2 {
+		fmt.Printf("Final string is %s\n", *inputPolymer)
+	}
+}
 
 func main() {
 	flag.Parse()
@@ -30,27 +53,32 @@ func main() {
 	lineReader := bufio.NewScanner(input)
 	lineReader.Scan()
 	polymer := lineReader.Text()
+	input.Close()
+	if *debug2 {
+		fmt.Printf("Starting string: %s\n", polymer)
+	}
 
 	if *debug {
 		fmt.Printf("Starting units: %d\n", len(polymer))
 	}
 
-	for {
+	React(&polymer)
 
-		match := match.FindAllStringIndex(polymer, 1)
-		if len(match) == 0 {
-			break
-		}
-		if *debug {
-			fmt.Printf("Matched %s with left index %d and right index %d. Cutting it out.\n", polymer[match[0][0]:match[0][1]], match[0][0], match[0][1])
-		}
-		polymer = strings.Replace(polymer, polymer[match[0][0]:match[0][1]], "", 1)
-		if *debug2 {
-			fmt.Printf("New string is %s\n", polymer)
-		}
+	if !*partB {
+		fmt.Printf("Remaining units: %d\n", len(polymer))
+	} else {
+		shortestReduction := len(polymer)
+		originalPolymer := polymer
 
+		for _, letterToCut := range partBList {
+			polymer = originalPolymer
+			polymer = strings.Replace(polymer, letterToCut, "", -1)
+			polymer = strings.Replace(polymer, strings.ToUpper(letterToCut), "", -1)
+			React(&polymer)
+			if len(polymer) < shortestReduction {
+				shortestReduction = len(polymer)
+			}
+		}
+		fmt.Printf("Shortest possible reaction is %d\n", shortestReduction)
 	}
-
-	fmt.Printf("Remaining units: %d\n", len(polymer))
-
 }
