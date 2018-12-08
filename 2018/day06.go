@@ -19,7 +19,8 @@ var (
 	coords = regexp.MustCompile(`^(\d+), (\d+)$`)
 )
 
-const (
+// part A settings
+var (
 	minXPadding = 10
 	maxXPadding = 10
 	minYPadding = 10
@@ -77,6 +78,7 @@ func (p *Point) String() string {
 
 // InitializeCheckMap - Create the distance map from all points in the Plane to the given KnownPoints
 func (p *Plane) InitializeCheckMap() {
+	fmt.Printf("Initializing the plane\n")
 	if p.checkMapInitialized {
 		return
 	}
@@ -243,8 +245,16 @@ func errorIf(msg string, e error) {
 		os.Exit(1)
 	}
 }
+
 func main() {
 	flag.Parse()
+
+	if *partB {
+		minXPadding = 10000
+		maxXPadding = 10000
+		minYPadding = 10000
+		maxYPadding = 10000
+	}
 
 	input, err := os.Open(*inputFile)
 	if err != nil {
@@ -272,51 +282,81 @@ func main() {
 	// reaches of the bounding rectangle. thus, we can go through it and eliminate
 	// all the points which have an infinite area, and, with the remainder, find
 	// their area
-	plane.InitializeCheckMap()
 	finitePoints := make([]*Point, 0)
-	for _, candidatePoint := range plane.KnownPoints {
-		if plane.IsPointInfinite(candidatePoint) {
-			if *debug {
-				fmt.Printf("Skipping %s because it's infinite\n", candidatePoint)
-			}
-			continue
-		} else {
-			finitePoints = append(finitePoints, candidatePoint)
-			if *debug {
-				fmt.Printf("%s is finite, using it\n", candidatePoint)
+	if !*partB {
+		plane.InitializeCheckMap()
+
+		for _, candidatePoint := range plane.KnownPoints {
+			if plane.IsPointInfinite(candidatePoint) {
+				if *debug {
+					fmt.Printf("Skipping %s because it's infinite\n", candidatePoint)
+				}
+				continue
+			} else {
+				finitePoints = append(finitePoints, candidatePoint)
+				if *debug {
+					fmt.Printf("%s is finite, using it\n", candidatePoint)
+				}
 			}
 		}
 	}
 
-	/*
-		Storing point claims can be done on the Point
-	*/
-	var least, secondLeast CoordinateClaim
-	for y := plane.MinY - minYPadding; y <= plane.MaxY+maxYPadding; y++ {
-		for x := plane.MinX - minXPadding; x <= plane.MaxX+maxXPadding; x++ {
-			least = plane.checkMap[x][y][0]
-			secondLeast = plane.checkMap[x][y][1]
+	if !*partB {
+		var least, secondLeast CoordinateClaim
+		for y := plane.MinY - minYPadding; y <= plane.MaxY+maxYPadding; y++ {
+			for x := plane.MinX - minXPadding; x <= plane.MaxX+maxXPadding; x++ {
+				least = plane.checkMap[x][y][0]
+				secondLeast = plane.checkMap[x][y][1]
 
-			for _, fp := range finitePoints {
-				// finite point gets a score if it's the closest to (x,y) without there being a tie
-				// if least is the same as the finite point we're looking at here, then +1,
-				// unless secondLeast has the same distance
-				if least.DistanceToPoint == secondLeast.DistanceToPoint {
-					continue
-				}
-				// there's not a tie, so, are we the leader?
-				if least.P.IsEqual(fp) {
-					fp.Claims++
-				}
+				for _, fp := range finitePoints {
+					// finite point gets a score if it's the closest to (x,y) without there being a tie
+					// if least is the same as the finite point we're looking at here, then +1,
+					// unless secondLeast has the same distance
+					if least.DistanceToPoint == secondLeast.DistanceToPoint {
+						continue
+					}
+					// there's not a tie, so, are we the leader?
+					if least.P.IsEqual(fp) {
+						fp.Claims++
+					}
 
+				}
 			}
 		}
-	}
 
-	sort.Slice(finitePoints, func(i, j int) bool { return finitePoints[i].Claims > finitePoints[j].Claims })
-	if *debug {
-		fmt.Printf("Total Scores: %s\n", finitePoints)
+		sort.Slice(finitePoints, func(i, j int) bool { return finitePoints[i].Claims > finitePoints[j].Claims })
+		if *debug {
+			fmt.Printf("Total Scores: %s\n", finitePoints)
+		}
+		fmt.Printf("High Score: %s\n", finitePoints[0])
+	} else {
+		//part B
+		// What is the size of the region containing all locations which have a total
+		// distance to all input Points of less than 10000? Note, you can't use the
+		// checkMap or it will run you out of memory!
+		//
+		// Make the boundary padding 10000 on each side, then go through and select all (x,y) points with a sum <10000
+		var regionPoints, sum int
+		regionPoints = 0
+		for y := plane.MinY - minYPadding; y <= plane.MaxY+maxYPadding; y++ {
+			for x := plane.MinX - minXPadding; x <= plane.MaxX+maxXPadding; x++ {
+				sum = 0
+				for _, kp := range plane.KnownPoints {
+					sum += kp.DistanceToXY(x, y)
+				}
+				if sum < 10000 {
+					if *debug {
+						fmt.Printf("(%d,%d) k %d.\n", x, y, sum)
+					}
+					regionPoints++
+				} else {
+					if *debug {
+						fmt.Printf("(%d,%d) r %d.\n", x, y, sum)
+					}
+				}
+			} // end x
+		}
+		fmt.Printf("Points in the region: %d\n", regionPoints)
 	}
-	fmt.Printf("High Score: %s\n", finitePoints[0])
 
 }
