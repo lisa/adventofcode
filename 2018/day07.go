@@ -12,12 +12,6 @@ import (
 	"strings"
 )
 
-/* Part B:
-This part will need a clock signal of some kind in order to count the number
-of seconds passed. It doesn't need to actually be a clock, but maybe a
-monotonic counter and a map to know when workers are free. The work also
-needs the concept of a threadpool to know when workers are free.
-*/
 
 var (
 	partB        = flag.Bool("partB", false, "Perform part B solution?")
