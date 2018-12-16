@@ -12,6 +12,8 @@ var (
 	inputFile = flag.String("input", "inputs/day08.txt", "Input file")
 	partB     = flag.Bool("partB", false, "Perform part B?")
 	debug     = flag.Bool("debug", false, "Debug?")
+	debug2    = flag.Bool("debug2", false, "more debugging?")
+	debug3    = flag.Bool("debug3", false, "require user input to advance parse loop?")
 )
 
 const (
@@ -27,83 +29,158 @@ func errorIf(msg string, e error) {
 	}
 }
 
-// parseInput - takes the node to which we append other nodes/data, and the piece of data to work with
-func parseInput(dataSlice []int) []int {
-	// we have to "pause" parsing the current Node to look, potentially, at its
-	// children. we'll use this to know how far back we have to go to get to +root+
-	depth := 0
-	entries := make([]int, 0)
+type Node struct {
+	Children       []*Node
+	MetadataCount  int // number of metadata entries in total
+	Metadata       []int
+	Parent         *Node
+	Value          int
+	MetadataToRead int // number of metadata entries left to read
+}
 
-	metadataEntries := make(map[int]int)
-	childrenToRead := make(map[int]int)
-	state := parseChildren
-	for i := 0; i < len(dataSlice); i++ {
+func NewNode() *Node {
+	return &Node{
+		Children:       make([]*Node, 0),
+		Metadata:       make([]int, 0),
+		Parent:         nil,
+		Value:          0,
+		MetadataCount:  0,
+		MetadataToRead: 0,
+	}
+}
+
+// SumTreeMetadata - sum up my metadata and my childrens'
+func (n *Node) SumTreeMetadata() int {
+	s := n.MetadataSum()
+	for _, c := range n.Children {
+		s += c.SumTreeMetadata()
+	}
+	return s
+}
+
+// MetadataSum - sum up all my metadata
+func (n *Node) MetadataSum() int {
+	s := 0
+	for _, v := range n.Metadata {
+		s += v
+	}
+	return s
+}
+
+// PartBSum - compute the part B sum for day 8
+func (n *Node) PartBSum() int {
+	if *debug {
+		fmt.Printf("Part B sum: %+v I have %d children ", n, len(n.Children))
+	}
+	s := 0
+	if len(n.Children) == 0 {
 		if *debug {
-			fmt.Printf("[%5d/%5d], d=%d: state=%d\n", i, len(dataSlice)-1, dataSlice[i], state)
+			fmt.Printf(" and that means my value is my metadata sum %d\n", n.MetadataSum())
 		}
-		switch state {
-		case parseChildren:
-			// Get the number of child nodes
-			if dataSlice[i] > 0 {
-				// there are children to read in a lower layer, so send that down
-			}
-			childrenToRead[depth+1] = dataSlice[i]
+		s = n.MetadataSum()
+	} else {
+		if *debug {
+			fmt.Printf("And that means my sum is the sum of my children at my indexes: %d\n", n.Metadata)
+		}
+		for _, i := range n.Metadata {
 			if *debug {
-				fmt.Printf("  parseChildren: Expecting to read %d children in depth %d.\n", childrenToRead[depth+1], depth+1)
+				fmt.Printf("  metadata value: %d\n", i)
 			}
-			state = metadataCount
-		case metadataCount:
-			// how many metadata for this depth?
-			metadataEntries[depth] = dataSlice[i]
-			if *debug {
-				fmt.Printf("  metadataCount: Expecting to read %d metadata entries for depth %d\n", metadataEntries[depth], depth)
-			}
-			if childrenToRead[depth+1] == 0 {
-				// no children in the next depth down, so read our metadata
-				state = metadataRead
-			} else {
-				// go down one level
-				if *debug {
-					fmt.Printf("Going from depth %d to %d\n", depth, depth+1)
-				}
-				depth++
-				state = parseChildren
-			}
-		case metadataRead:
-			// read metadata for this depth
-			if *debug {
-				fmt.Printf("  metadataRead: We have %d entries left to read at depth %d\n", metadataEntries[depth], depth)
-			}
-
-			if metadataEntries[depth] > 0 {
-				entries = append(entries, dataSlice[i])
-				metadataEntries[depth]--
-				if *debug {
-					fmt.Printf("  metadataRead: Reading a metadata entry %d at depth %d (%d left to read)\n", dataSlice[i], depth, metadataEntries[depth])
-				}
-			}
-			// check to see if we're done with reading
-			if metadataEntries[depth] == 0 {
-				// we have successfully completed reading a child, so there's one less
-				childrenToRead[depth]--
-				if childrenToRead[depth] == 0 {
-					if *debug {
-						fmt.Printf("  metadataRead: There are no children left to read at depth %d, so next up is metadata\n", depth)
-					}
-					// read metadata at higher depth
-					depth--
-					state = metadataRead
-				} else {
-					if *debug {
-						fmt.Printf("  metadaRead: There's more children at depth %d, so read them next\n", depth)
-					}
-					// there's more children right away
-					state = parseChildren
-				}
+			// okay to use len() and i here like this since they're both 1-based
+			// however, in indexing into our Children slice we need to (i-1)
+			if len(n.Children) >= i {
+				s += n.Children[i-1].PartBSum()
 			}
 		}
 	}
-	return entries
+	return s
+}
+
+// recursively parse the input
+// *i needs to start as -1
+func parseInputIntoNodes(root *Node, i *int, dataSlice []int) {
+	if *debug {
+		fmt.Printf("data %d\n", dataSlice)
+	}
+	state := parseChildren
+	for *i < len(dataSlice) {
+		// first thing's first, advance the counter
+		*i++
+		if *debug {
+			fmt.Println()
+			fmt.Printf("[%5d/%5d], d=%d, state=%d", *i, len(dataSlice)-1, dataSlice[*i], state)
+		}
+
+		switch state {
+		case parseChildren:
+			// Allocate room for my children
+			if *debug {
+				fmt.Printf(" parseChildren: Allocating %d Children for (%p) root %+v\n", dataSlice[*i], root, root)
+			}
+			root.Children = make([]*Node, dataSlice[*i])
+			// and now, add "stubs" for my children
+			for c := range root.Children {
+				n := NewNode()
+				n.Parent = root
+				root.Children[c] = n
+			}
+			state = metadataCount
+		case metadataCount:
+			// I have this many metadata entries in total
+			if *debug {
+				fmt.Printf(" metadataCount: I have to read %d entries\n", dataSlice[*i])
+			}
+			root.MetadataCount = dataSlice[*i]
+			root.MetadataToRead = dataSlice[*i]
+			// Allocate room for my metadata entries
+			root.Metadata = make([]int, dataSlice[*i])
+
+			// What should I do next? If I have children I need to read them in before I
+			// read my own metadata
+			if len(root.Children) > 0 {
+				// I should loop through my kids to read them in
+				if *debug {
+					fmt.Printf("   metadataCount: %d children to read, so looping...\n", len(root.Children))
+				}
+				for _, child := range root.Children {
+					// before passing control to the next iteration, need to advance to the next
+					// item in the dataSlice
+					if *debug {
+						fmt.Printf("   metadataCount: About to pass control for (%p) child %+v\n", child, child)
+					}
+					parseInputIntoNodes(child, i, dataSlice)
+					if *debug {
+						fmt.Printf("   metadataCount: Finished processing (%p) child %+v\n", child, child)
+					}
+					// the final child will fall through the select statement and advance *i
+					// afterwards.
+				}
+			}
+			// At this point one of two things is true:
+			// 1) I have finished reading all of my children and now need to read my own metadata
+			// 2) I never had any children and now need to read my own metadata
+			state = metadataRead
+		case metadataRead:
+			if *debug {
+				fmt.Printf(" metadataRead: Reading metadata value %d\n", dataSlice[*i])
+			}
+			// read metadata for myself
+			root.Metadata[root.MetadataCount-root.MetadataToRead] = dataSlice[*i]
+			root.MetadataToRead--
+			// Do I have more metadata?
+			if *debug {
+				fmt.Printf("   metadataRead: More to go if MetadataToRead > 0 (%d > 0)\n", root.MetadataToRead)
+			}
+			if root.MetadataToRead > 0 {
+				// More metadata to read
+				// (this state "change" isn't strictly necessary but it will help readability.)
+				state = metadataRead
+			} else {
+				// no more metadata for myself, so I need to break out of the for loop.
+				return
+			}
+		}
+	}
 }
 
 func main() {
@@ -123,13 +200,17 @@ func main() {
 		errorIf("Couldn't parse a digit\n", err)
 		dataset = append(dataset, d)
 	}
+	// must be -1 due to pre-increment
+	i := -1
+	root := NewNode()
+	parseInputIntoNodes(root, &i, dataset)
 
-	res := parseInput(dataset)
-
-	sum := 0
-	for i := 0; i < len(res); i++ {
-		sum = sum + res[i]
+	if !*partB {
+		// sum all of the entries
+		fmt.Printf("tree sum= %d\n", root.SumTreeMetadata())
+	} else {
+		// part B
+		fmt.Printf("part b sum = %d\n", root.PartBSum())
 	}
-	fmt.Printf("Sum: %d\n", sum)
 
 }
