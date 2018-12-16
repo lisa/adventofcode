@@ -34,7 +34,6 @@ type Node struct {
 	MetadataCount  int // number of metadata entries in total
 	Metadata       []int
 	Parent         *Node
-	Value          int
 	MetadataToRead int // number of metadata entries left to read
 }
 
@@ -43,7 +42,6 @@ func NewNode() *Node {
 		Children:       make([]*Node, 0),
 		Metadata:       make([]int, 0),
 		Parent:         nil,
-		Value:          0,
 		MetadataCount:  0,
 		MetadataToRead: 0,
 	}
