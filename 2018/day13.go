@@ -56,6 +56,21 @@ func errorIf(msg string, e error) {
 		os.Exit(1)
 	}
 }
+
+func dirToString(d Direction) string {
+	switch d {
+	case East:
+		return "East"
+	case South:
+		return "South"
+	case West:
+		return "West"
+	case North:
+		return "North"
+	}
+	return "Unknown direction"
+}
+
 func segTypeToString(t SegmentType) string {
 	switch t {
 	case EastWest:
@@ -94,7 +109,7 @@ type Segment struct {
 }
 
 type Shuttle struct {
-	X, Y              int
+	ID, X, Y          int
 	CurrentSegment    *Segment
 	DirectionOfTravel Direction
 	LastTurn          Turn
@@ -179,13 +194,13 @@ func (f *Field) PrintField() {
 			} else if shuttle != nil {
 				switch shuttle.DirectionOfTravel {
 				case East:
-					fmt.Printf("%s", Cyan(">").Bold())
+					fmt.Printf("%s", Cyan(">").Bold().Inverse())
 				case West:
-					fmt.Printf("%s", Green("<").Bold())
+					fmt.Printf("%s", Green("<").Bold().Inverse())
 				case South:
-					fmt.Printf("%s", Red("v").Bold())
+					fmt.Printf("%s", Red("v").Bold().Inverse())
 				case North:
-					fmt.Printf("%s", Magenta("^").Bold())
+					fmt.Printf("%s", Magenta("^").Bold().Inverse())
 				}
 				continue
 			}
@@ -206,7 +221,9 @@ func (f *Field) PrintField() {
 				fmt.Printf(" ")
 			}
 		}
-		fmt.Println()
+		if *debug {
+			fmt.Println()
+		}
 	}
 }
 
@@ -230,15 +247,34 @@ func (f *Field) GetShuttleByXY(x, y int) (*Shuttle, error) {
 // GetShuttlesByY - Get a shuttle by the Y value, in order of X:
 func (f *Field) GetShuttlesByY(y int) []*Shuttle {
 	ret := make([]*Shuttle, 0)
-
 	for _, shuttle := range f.Shuttles {
 		if shuttle.Y == y {
+			if *debug {
+				fmt.Printf("Adding shuttle id=%d (p=%p) (%d,%d) to list for selecting y=%d\n",
+					shuttle.ID, shuttle, shuttle.CurrentSegment.X, shuttle.CurrentSegment.Y,
+					y)
+			}
 			ret = append(ret, shuttle)
 		}
 	}
 
 	// sort to ensure left-to-right order based on X.
-	sort.Slice(ret, func(i, j int) bool { return f.Shuttles[i].X < f.Shuttles[j].X })
+	sort.Slice(ret, func(i, j int) bool {
+		if *debug {
+			fmt.Printf("i Shuttle ID=%d (%d,%d); j Shuttle ID=%d (%d,%d). i.X < j.X = %d < %d = %t\n",
+				ret[i].ID, ret[i].CurrentSegment.X, ret[i].CurrentSegment.Y,
+				ret[j].ID, ret[j].CurrentSegment.X, ret[j].CurrentSegment.Y,
+				ret[i].CurrentSegment.X, ret[j].CurrentSegment.X, ret[i].CurrentSegment.X < ret[j].CurrentSegment.X)
+		}
+		return ret[i].CurrentSegment.X < ret[j].CurrentSegment.X
+	})
+	if *debug {
+		fmt.Printf("Selecting all shuttles where y=%d\n", y)
+		for i, shuttle := range ret {
+			fmt.Printf("Sorted result for GetShuttlebyY(%d) (i=%d) Shuttle ID %d (p=%p) at (%d,%d)\n", y, i,
+				shuttle.ID, shuttle, shuttle.CurrentSegment.X, shuttle.CurrentSegment.Y)
+		}
+	}
 	return ret
 }
 
@@ -413,6 +449,7 @@ func (f *Field) AddShuttle(x, y int, dir Direction) {
 		Y:                 y,
 		DirectionOfTravel: dir,
 		CurrentSegment:    seg,
+		ID:                len(f.Shuttles),
 	}
 	f.Shuttles = append(f.Shuttles, s)
 }
@@ -435,7 +472,8 @@ func (f *Field) UpdateShuttlePositions() {
 
 // HasCollision - does the Field have any collisions? If it does, return the
 // segment at which it occurred, otherwise nil.
-func (f *Field) HasCollision() *Segment {
+func (f *Field) HasCollision() []*Segment {
+	ret := make([]*Segment, 0)
 	seen := make(map[int]map[int]bool)
 	for _, shuttle := range f.Shuttles {
 		if _, ok := seen[shuttle.CurrentSegment.X]; !ok {
@@ -444,47 +482,49 @@ func (f *Field) HasCollision() *Segment {
 		}
 		if seen[shuttle.CurrentSegment.X][shuttle.CurrentSegment.Y] {
 			if *debug {
-				fmt.Printf("  %p at (%d,%d) has a collision. Segment type %s\n", shuttle, shuttle.CurrentSegment.X, shuttle.CurrentSegment.Y, segTypeToString(shuttle.CurrentSegment.Type))
+				fmt.Printf("  Shuttle %d (%p) at (%d,%d) has a collision. Segment type %s\n", shuttle.ID, shuttle, shuttle.CurrentSegment.X, shuttle.CurrentSegment.Y, segTypeToString(shuttle.CurrentSegment.Type))
+				fmt.Println()
 			}
-			fmt.Println()
-			return shuttle.CurrentSegment
+			ret = append(ret, shuttle.CurrentSegment)
 		} else {
 			seen[shuttle.CurrentSegment.X][shuttle.CurrentSegment.Y] = true
+			//			if *debug {
+			//				fmt.Printf("  Adding (%d,%d) to seen list for p=%p\n", shuttle.CurrentSegment.X, shuttle.CurrentSegment.Y, shuttle)
+			//			}
 		}
 
 	}
-	return nil
+	return ret
 }
 
-func (f *Field) HasCollisionAtXY(x, y int) bool {
-	occupied := make(map[int]map[int]bool)
-	for _, shuttle := range f.Shuttles {
-		if shuttle.X != x || shuttle.Y != y {
-			continue
+// DeleteShuttlesAtXY - delete all Shuttles occupying the segment at (x,y)
+func (f *Field) DeleteShuttlesAtXY(x, y int) {
+
+	for i := 0; i < len(f.Shuttles); i++ {
+		if *debug {
+			fmt.Printf("DeleteShuttlesAtXY(%d,%d): Checking shuttle id=%d at (%d,%d)\n", x, y, f.Shuttles[i].ID, f.Shuttles[i].CurrentSegment.X, f.Shuttles[i].CurrentSegment.Y)
 		}
-		fmt.Printf("HasCollisionAtXY(%d,%d): Examining shuttle (p=%p) %+v. Map -> %+v\n", x, y, shuttle, shuttle, occupied)
-		if _, ok := occupied[shuttle.X]; !ok {
-			occupied[shuttle.X] = make(map[int]bool)
-		}
-		if occupied[shuttle.X][shuttle.Y] {
-			fmt.Printf("HasCollisionAtXY(%d,%d) Shuttle %+v has been seen? Map -> %+v\n", x, y, shuttle, occupied)
-			return true
-		} else {
-			occupied[shuttle.X][shuttle.Y] = true
-			fmt.Printf("HasCollisionAtXY(%d,%d) map (Setting seen) -> %+v\n", x, y, occupied)
+		// it is possible that this is being called before updating positions, so refer to the segment itself
+		if f.Shuttles[i].CurrentSegment.X == x && f.Shuttles[i].CurrentSegment.Y == y {
+			if *debug {
+				fmt.Printf("Removing shuttle id=%d from (%d,%d)\n", f.Shuttles[i].ID, x, y)
+			}
+			//delete
+			f.Shuttles = append(f.Shuttles[:i], f.Shuttles[i+1:]...)
+			// start over
+			i = -1
 		}
 	}
-	return false
 }
 
 // Tick - move all shuttles one by one checking for collisions along the way
 // If there is a collision in this tick, return it, otherwise return nil.
-func (f *Field) Tick() *Segment {
+func (f *Field) Tick() []*Segment {
 
 	for testY := 0; testY <= f.MaxY; testY++ {
 		for _, shuttle := range f.GetShuttlesByY(testY) {
 			if *debug {
-				fmt.Printf("Moving shuttle %p from (%d,%d; segType=%s)\n", shuttle, shuttle.X, shuttle.Y, segTypeToString(shuttle.CurrentSegment.Type))
+				fmt.Printf("Moving shuttle id=%d (%p) from (%d,%d; segType=%s)\n", shuttle.ID, shuttle, shuttle.X, shuttle.Y, segTypeToString(shuttle.CurrentSegment.Type))
 			}
 			// The direction of movement for this tick was set by the previous tick.
 			// That means that we will just move in that direction!
@@ -515,8 +555,22 @@ func (f *Field) Tick() *Segment {
 
 			}
 			collides := f.HasCollision()
-			if collides != nil {
-				return collides
+			if len(collides) > 0 {
+				if !*partB {
+					return collides
+				} else {
+					// Part B: Delete the two shuttles that occupy this segment
+					for _, collision := range collides {
+						//						if *debug {
+						//							var d string
+
+						//							fmt.Printf("Press enter to delete colliding shuttles")
+						//					fmt.Scanf("\n", &d)
+						//		}
+						f.DeleteShuttlesAtXY(collision.X, collision.Y)
+					}
+					continue
+				}
 			}
 			if *debug {
 				fmt.Printf("       Updating direction of travel for next Tick()...\n")
@@ -697,26 +751,61 @@ func main() {
 
 	iterations := 0
 	var d string
+	if *debug {
+		fmt.Printf("\n\nStarting Condition:\n")
+		for i := 0; i < len(field.Shuttles); i++ {
+			fmt.Printf("Shutle %d at (%d,%d). Starting direction %s on segment type %s\n", i, field.Shuttles[i].CurrentSegment.X, field.Shuttles[i].CurrentSegment.Y, dirToString(field.Shuttles[i].DirectionOfTravel), segTypeToString(field.Shuttles[i].CurrentSegment.Type))
+		}
+		fmt.Printf("Map before processing iteration %d\n", iterations)
+		field.PrintField()
+		fmt.Printf("\n\n\n\n")
+	}
+
 	for {
 		if *debug {
-			field.PrintField()
+			if iterations != 0 {
+				fmt.Printf("Map before processing iteration %d\n", iterations)
+				field.PrintField()
+				fmt.Printf("Shuttle status\n")
+				for i := 0; i < len(field.Shuttles); i++ {
+					fmt.Printf("Shutle %d at (%d,%d). Direction %s on segment type %s\n", field.Shuttles[i].ID, field.Shuttles[i].CurrentSegment.X, field.Shuttles[i].CurrentSegment.Y, dirToString(field.Shuttles[i].DirectionOfTravel), segTypeToString(field.Shuttles[i].CurrentSegment.Type))
+				}
+				if iterations > 7550 {
+					fmt.Printf("Shuttles at y=101\n")
+					d := field.GetShuttlesByY(101)
+					for i := 0; i < len(d); i++ {
+						fmt.Printf("Shutle %d at (%d,%d). Direction %s on segment type %s\n", d[i].ID, d[i].CurrentSegment.X, field.Shuttles[i].CurrentSegment.Y, dirToString(field.Shuttles[i].DirectionOfTravel), segTypeToString(d[i].CurrentSegment.Type))
+					}
+				}
+
+			}
 		}
 		if *debug2 {
-			fmt.Printf("Press enter to advance")
+			fmt.Printf("Press enter to process this iteration")
 			fmt.Scanf("\n", &d)
 		}
-		if collide := field.Tick(); collide == nil {
+		if collide := field.Tick(); len(collide) == 0 {
+			if *partB {
+				//part B will never collide
+				if *debug {
+					fmt.Printf("%d done, %d shuttles left\n", iterations, len(field.Shuttles))
+				}
+				if len(field.Shuttles) == 1 {
+					fmt.Printf("(iteration %d) The last shuttle is at (%d,%d)\n", iterations, field.Shuttles[0].CurrentSegment.X, field.Shuttles[0].CurrentSegment.Y)
+					break
+				}
+			}
 			if *debug {
 				fmt.Printf("No collision. Shuttle positions\n")
 			}
 		} else {
-			fmt.Printf("collision at (%d,%d)\n", collide.X, collide.Y)
+			fmt.Printf("collision at (%d,%d)\n", collide[0].X, collide[0].Y)
 			break
 		}
-		iterations++
 		if *debug {
-			fmt.Printf("Done %d iterations\n", iterations)
+			fmt.Printf("Completed iteration %d\n\n", iterations)
 		}
+		iterations++
 	}
 	if *debug {
 		field.PrintField()
