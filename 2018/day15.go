@@ -57,7 +57,7 @@ func Less(left, right Tile) bool {
 	if leftHealth == rightHealth {
 		//reading order check
 		leftX, leftY := left.Coords()
-		rightX, rightY := left.Coords()
+		rightX, rightY := right.Coords()
 		if leftY < rightY {
 			return true
 		} else if leftY > rightY {
