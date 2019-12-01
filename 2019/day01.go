@@ -29,14 +29,20 @@ func Compute(m int) int {
 			fmt.Printf("Computing part B\n")
 		}
 		newmass := compute(m)
-		fmt.Printf("Mass %d turns into %d\n", m, newmass)
+		if *debug {
+			fmt.Printf("Mass %d turns into %d\n", m, newmass)
+		}
 		for {
 			if newmass > 0 {
 				ret += newmass
-				fmt.Printf("Computing mass for fuel needed for %d\n", newmass)
+				if *debug {
+					fmt.Printf("Computing mass for fuel needed for %d\n", newmass)
+				}
 				newmass = compute(newmass)
 			} else {
-				fmt.Printf("Wishing really hard for mass %d\n", newmass)
+				if *debug {
+					fmt.Printf("Wishing really hard for mass %d\n", newmass)
+				}
 				return ret
 			}
 		}
