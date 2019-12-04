@@ -59,11 +59,24 @@ func validPassword(p int) bool {
 			return false
 		}
 		if i > 0 && lastDigit == digit {
+			if _, ok := digitFreq[digit]; !ok {
+				digitFreq[digit] = 0
+			}
 			digitFreq[digit] += 1
 		}
 		lastDigit = digit
 	}
-	return len(digitFreq) != 0
+	if !*partB {
+		return len(digitFreq) != 0
+	} else {
+		ok := false
+		for _, freq := range digitFreq {
+			if freq == 1 {
+				ok = true
+			}
+		}
+		return ok
+	}
 }
 
 func main() {
@@ -85,12 +98,8 @@ func main() {
 			validPasswords = append(validPasswords, i)
 		}
 	}
-	if !*partB {
-		// part A
-		fmt.Printf("Out of %d possible, there are %d valid passwords\n", upper-lower+1, len(validPasswords))
-	} else {
-		// part B
-	}
+
+	fmt.Printf("Out of %d possible, there are %d valid passwords\n", upper-lower+1, len(validPasswords))
 
 	os.Exit(0)
 }
